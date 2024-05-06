@@ -7,7 +7,10 @@ import {
   GraphQLInt,
   GraphQLList,
   GraphQLString,
+  GraphQLID,
 } from 'graphql';
+
+import { nodeDefinitions, fromGlobalId, globalIdField } from 'graphql-relay';
 
 import pkg from 'join-monster';
 const joinMonster = pkg.default;
@@ -16,101 +19,65 @@ import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 
 // modifiy here if you want to use another database
-const knex = require('knex')({
-  client: 'sqlite3',
-  connection: {
-    filename: './setup.db'
-  }
-});
+const dbExec = (sql) => {
+  console.log("SQL: " + sql);
+  return [{
+    id: 'efcd2a70-63a2-4ad3-a669-dcabc6238f2c',
+    name: 'Test User',
+  }]
+}
 
 // begin your definition of the schema
-const Tag = new GraphQLObjectType({
-  name: 'Tags',
-  extensions: {
-    joinMonster: {
-      sqlTable: 'tags',
-      uniqueKey: 'id',
-    },
-  },
-  fields: {
-    id: {
-      type: GraphQLInt
-    },
-    body: {
-      type: GraphQLString
-    },
-  }
-});
+const { nodeInterface, nodeField } = nodeDefinitions(
+  // https://join-monster.readthedocs.io/en/v0.9.9/relay/
+  // resolve the ID to an object
+  (globalId, context, resolveInfo) => {
+    // parse the globalID
+    const { type, id } = fromGlobalId(globalId)
 
-const UserTag = new GraphQLObjectType({
-  name: 'UserTags',
-  extensions: {
-    joinMonster: {
-      sqlTable: 'user_tags',
-      uniqueKey: 'user_id', // this is the magic that allows the join to work
-    },
+    // pass the type name and other info. `joinMonster` will find the type from the name and write the SQL
+    return joinMonster.getNode(type, resolveInfo, context, [id],
+      async sql => dbExec(sql)
+    )
   },
-  fields: {
-    a_tags: {
-      type: new GraphQLList(Tag),
-      extensions: {
-        joinMonster: {
-          sqlJoin: (ut, t) => `${ut}.tag_id = ${t}.id and ${ut}.type = 'a'`
-        }
-      }
-    },
-    b_tags: {
-      type: new GraphQLList(Tag),
-      extensions: {
-        joinMonster: {
-          sqlJoin: (ut, t) => `${ut}.tag_id = ${t}.id and ${ut}.type = 'b'`
-        }
-      }
-    },
-    c_tags: {
-      type: new GraphQLList(Tag),
-      extensions: {
-        joinMonster: {
-          sqlJoin: (ut, t) => `${ut}.tag_id = ${t}.id and ${ut}.type = 'c'`
-        }
-      }
-    },
-  }
-});
+  // determines the type. Join Monster places that type onto the result object on the "__type__" property
+  obj => obj.__type__?.name
+)
 
 const User = new GraphQLObjectType({
-  name: 'Users',
+  name: 'User',
+  sqlTable: 'public.user',
+  interfaces: [nodeInterface],
+  description: 'User model',
   extensions: {
     joinMonster: {
-      sqlTable: 'users',
-      uniqueKey: 'id',
-    },
-  },
-  fields: {
-    id: {
-      type: GraphQLInt
-    },
-    tags: {
-      type: UserTag,
-      extensions: {
-        joinMonster: {
-          sqlJoin: (u, ut) => `${u}.id = ${ut}.user_id`
-        },
-      },
+      sqlTable: 'public.user',
+      uniqueKey: 'id'
     }
-  }
+  },
+  fields: () => {
+    return {
+      id: { ...globalIdField(), },
+      name: { type: GraphQLString },
+    }
+  },
 });
 // end your definition of the schema
 
 const QueryRoot = new GraphQLObjectType({
   name: 'Query',
   fields: () => ({
-    users: {
-      type: new GraphQLList(User),
-      resolve: (parent, args, context, resolveInfo) => {
-        return joinMonster(resolveInfo, {}, sql => {
-          return knex.raw(sql)
-        })
+    node: nodeField,
+    user: {
+      type: User,
+      description: "get user information",
+      args: {
+        id: { type: GraphQLID }
+      },
+      resolve: async (parent, args, context, resolveInfo) => {
+        return await joinMonster(resolveInfo, context, async sql => {
+          return dbExec(sql);
+        });
       }
     }
   })
@@ -125,54 +92,21 @@ const schema = new GraphQLSchema({
 (async () => {
   // define the query you want to test
   const source = `
-  {
-    users {
+  query {
+    node(id:"VXNlcjplZmNkMmE3MC02M2EyLTRhZDMtYTY2OS1kY2FiYzYyMzhmMmM=") {
       id
-      tags {
-        a_tags {
-          id
-        }
-        b_tags {
-          id
-        }
-        c_tags {
-          id
-        }
-      }
     }
   }
   `;
 
   // define the expected result
   const expected = {
-    users: [
-      {
-        id: 1,
-        tags: {
-          a_tags: [
-            {
-              id: 1,
-            },
-            {
-              id: 3,
-            }
-          ],
-          b_tags: [
-            {
-              id: 2,
-            },
-            {
-              id: 4,
-            }
-          ],
-          c_tags: []
-        }
-      }
-    ]
+    id: 'efcd2a70-63a2-4ad3-a669-dcabc6238f2c',
+    name: 'Test User',
   };
-  
-  const { data, errors } = await graphql({schema, source});
-  
+
+  const { data, errors } = await graphql({ schema, source });
+
   if (errors?.length) {
     console.error(errors);
   }
