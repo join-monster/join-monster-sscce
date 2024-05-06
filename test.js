@@ -4,8 +4,6 @@ import {
   graphql,
   GraphQLSchema,
   GraphQLObjectType,
-  GraphQLInt,
-  GraphQLList,
   GraphQLString,
   GraphQLID,
 } from 'graphql';
@@ -41,7 +39,7 @@ const { nodeInterface, nodeField } = nodeDefinitions(
     )
   },
   // determines the type. Join Monster places that type onto the result object on the "__type__" property
-  obj => obj.__type__?.name
+  obj => obj.__type__
 )
 
 const User = new GraphQLObjectType({
@@ -100,9 +98,10 @@ const schema = new GraphQLSchema({
   `;
 
   // define the expected result
-  const expected = {
-    id: 'efcd2a70-63a2-4ad3-a669-dcabc6238f2c',
-    name: 'Test User',
+  const expected = { 
+    node: {
+      id: 'VXNlcjplZmNkMmE3MC02M2EyLTRhZDMtYTY2OS1kY2FiYzYyMzhmMmM='
+    }
   };
 
   const { data, errors } = await graphql({ schema, source });
@@ -115,6 +114,4 @@ const schema = new GraphQLSchema({
   assert.deepEqual(JSON.parse(JSON.stringify(data)), expected);
 
   console.log('test passed');
-
-  knex.destroy();
 })();
