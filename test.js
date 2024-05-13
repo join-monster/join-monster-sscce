@@ -4,7 +4,6 @@ import {
   graphql,
   GraphQLSchema,
   GraphQLObjectType,
-  GraphQLInt,
   GraphQLList,
   GraphQLString,
 } from 'graphql';
@@ -24,89 +23,45 @@ const knex = require('knex')({
 });
 
 // begin your definition of the schema
-const Tag = new GraphQLObjectType({
-  name: 'Tags',
+const GraphQLSet = new GraphQLObjectType({
+  name: `Set`,
   extensions: {
     joinMonster: {
-      sqlTable: 'tags',
-      uniqueKey: 'id',
-    },
-  },
-  fields: {
-    id: {
-      type: GraphQLInt
-    },
-    body: {
-      type: GraphQLString
-    },
-  }
-});
-
-const UserTag = new GraphQLObjectType({
-  name: 'UserTags',
-  extensions: {
-    joinMonster: {
-      sqlTable: 'user_tags',
-      uniqueKey: 'user_id', // this is the magic that allows the join to work
-    },
-  },
-  fields: {
-    a_tags: {
-      type: new GraphQLList(Tag),
-      extensions: {
-        joinMonster: {
-          sqlJoin: (ut, t) => `${ut}.tag_id = ${t}.id and ${ut}.type = 'a'`
-        }
-      }
-    },
-    b_tags: {
-      type: new GraphQLList(Tag),
-      extensions: {
-        joinMonster: {
-          sqlJoin: (ut, t) => `${ut}.tag_id = ${t}.id and ${ut}.type = 'b'`
-        }
-      }
-    },
-    c_tags: {
-      type: new GraphQLList(Tag),
-      extensions: {
-        joinMonster: {
-          sqlJoin: (ut, t) => `${ut}.tag_id = ${t}.id and ${ut}.type = 'c'`
-        }
-      }
-    },
-  }
-});
-
-const User = new GraphQLObjectType({
-  name: 'Users',
-  extensions: {
-    joinMonster: {
-      sqlTable: 'users',
-      uniqueKey: 'id',
-    },
-  },
-  fields: {
-    id: {
-      type: GraphQLInt
-    },
-    tags: {
-      type: UserTag,
-      extensions: {
-        joinMonster: {
-          sqlJoin: (u, ut) => `${u}.id = ${ut}.user_id`
-        },
-      },
+      sqlTable: `set`,
+      uniqueKey: `id`,
     }
-  }
-});
+  },
+  fields: () => ({
+    id: { type: GraphQLString },
+    fullName: { type: GraphQLString },
+    shortName: { type: GraphQLString },
+  })
+})
+
+const GraphQLCard = new GraphQLObjectType({
+  name: `Card`,
+  extensions: {
+    joinMonster: {
+      sqlTable: `card`,
+      uniqueKey: `id`,
+    }
+  },
+  fields: () => ({
+    id: { type: GraphQLString },
+    name: { type: GraphQLString },
+    set: {
+      type: GraphQLSet,
+      sqlJoin: (myTable, parentTable) => `${myTable}.id = ${parentTable}.setId`
+    }
+  })
+})
 // end your definition of the schema
 
 const QueryRoot = new GraphQLObjectType({
   name: 'Query',
   fields: () => ({
-    users: {
-      type: new GraphQLList(User),
+    cards: {
+      type: new GraphQLList(GraphQLCard),
       resolve: (parent, args, context, resolveInfo) => {
         return joinMonster(resolveInfo, {}, sql => {
           return knex.raw(sql)
@@ -126,49 +81,19 @@ const schema = new GraphQLSchema({
   // define the query you want to test
   const source = `
   {
-    users {
+    cards {
       id
-      tags {
-        a_tags {
-          id
-        }
-        b_tags {
-          id
-        }
-        c_tags {
-          id
-        }
-      }
+      name
     }
   }
   `;
 
   // define the expected result
   const expected = {
-    users: [
-      {
-        id: 1,
-        tags: {
-          a_tags: [
-            {
-              id: 1,
-            },
-            {
-              id: 3,
-            }
-          ],
-          b_tags: [
-            {
-              id: 2,
-            },
-            {
-              id: 4,
-            }
-          ],
-          c_tags: []
-        }
-      }
-    ]
+    cards: [{
+      id: '1',
+      name: 'Black Lotus'
+    }]
   };
   
   const { data, errors } = await graphql({schema, source});

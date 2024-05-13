@@ -1,35 +1,17 @@
-DROP TABLE IF EXISTS users;
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  first_name VARCHAR(255),
-  last_name VARCHAR(255),
-  created_at DEFAULT CURRENT_TIMESTAMP
+DROP TABLE IF EXISTS card;
+CREATE TABLE card (
+  id VARCHAR(32) PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  setId VARCHAR(64),
+  CONSTRAINT FK_setId FOREIGN KEY (setId) REFERENCES 'set'(id)
 );
 
-DROP TABLE IF EXISTS user_tags;
-CREATE TABLE user_tags (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  tag_id INTEGER NOT NULL,
-  type VARCHAR(8),
-  created_at DEFAULT CURRENT_TIMESTAMP
+DROP TABLE IF EXISTS 'set';
+CREATE TABLE 'set' (
+  id VARCHAR(64) PRIMARY KEY NOT NULL,
+  fullName VARCHAR(128) NOT NULL,
+  shortName VARCHAR(8) NOT NULL
 );
 
-DROP TABLE IF EXISTS tags;
-CREATE TABLE tags (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  body VARCHAR(255),
-  created_at DEFAULT CURRENT_TIMESTAMP
-);
-
-insert into users (first_name, last_name) values ('John', 'Doe');
-
-insert into tags (body) values ('tag1');
-insert into tags (body) values ('tag2');
-insert into tags (body) values ('tag3');
-insert into tags (body) values ('tag4');
-
-insert into user_tags (user_id, tag_id, type) values (1, 1, 'a');
-insert into user_tags (user_id, tag_id, type) values (1, 2, 'b');
-insert into user_tags (user_id, tag_id, type) values (1, 3, 'a');
-insert into user_tags (user_id, tag_id, type) values (1, 4, 'b');
+insert into 'set' (id, fullName, shortName) values ('1', 'Alpha', 'A');
+insert into card (id, name, setId) values ('1', 'Black Lotus', '1');
