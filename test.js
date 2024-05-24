@@ -24,11 +24,11 @@ const knex = require('knex')({
 });
 
 // begin your definition of the schema
-const Tag = new GraphQLObjectType({
-  name: 'Tags',
+const Product = new GraphQLObjectType({
+  name: 'Product',
   extensions: {
     joinMonster: {
-      sqlTable: 'tags',
+      sqlTable: 'products',
       uniqueKey: 'id',
     },
   },
@@ -36,53 +36,45 @@ const Tag = new GraphQLObjectType({
     id: {
       type: GraphQLInt
     },
-    body: {
+    name: {
       type: GraphQLString
     },
   }
 });
 
-const UserTag = new GraphQLObjectType({
-  name: 'UserTags',
+const OrderItem = new GraphQLObjectType({
+  name: 'OrderItem',
   extensions: {
     joinMonster: {
-      sqlTable: 'user_tags',
-      uniqueKey: 'user_id', // this is the magic that allows the join to work
+      sqlTable: '(select * from orders o, json_each(o.items) i)',
+      uniqueKey: 'key',
     },
   },
   fields: {
-    a_tags: {
-      type: new GraphQLList(Tag),
+    quantity: {
+      type: GraphQLInt,
       extensions: {
         joinMonster: {
-          sqlJoin: (ut, t) => `${ut}.tag_id = ${t}.id and ${ut}.type = 'a'`
+          sqlExpr: (table, args) => `${table}.value->>'quantity'`
         }
       }
     },
-    b_tags: {
-      type: new GraphQLList(Tag),
+    product: {
+      type: Product,
       extensions: {
         joinMonster: {
-          sqlJoin: (ut, t) => `${ut}.tag_id = ${t}.id and ${ut}.type = 'b'`
-        }
-      }
-    },
-    c_tags: {
-      type: new GraphQLList(Tag),
-      extensions: {
-        joinMonster: {
-          sqlJoin: (ut, t) => `${ut}.tag_id = ${t}.id and ${ut}.type = 'c'`
+          sqlJoin: (oi, p) => `${oi}.value->>'product_id' = ${p}.id`
         }
       }
     },
   }
 });
 
-const User = new GraphQLObjectType({
-  name: 'Users',
+const Order = new GraphQLObjectType({
+  name: 'Order',
   extensions: {
     joinMonster: {
-      sqlTable: 'users',
+      sqlTable: 'orders',
       uniqueKey: 'id',
     },
   },
@@ -90,11 +82,11 @@ const User = new GraphQLObjectType({
     id: {
       type: GraphQLInt
     },
-    tags: {
-      type: UserTag,
+    items: {
+      type: new GraphQLList(OrderItem),
       extensions: {
         joinMonster: {
-          sqlJoin: (u, ut) => `${u}.id = ${ut}.user_id`
+          sqlJoin: (o, oi) => `${o}.id = ${oi}.id`
         },
       },
     }
@@ -105,10 +97,11 @@ const User = new GraphQLObjectType({
 const QueryRoot = new GraphQLObjectType({
   name: 'Query',
   fields: () => ({
-    users: {
-      type: new GraphQLList(User),
+    orders: {
+      type: new GraphQLList(Order),
       resolve: (parent, args, context, resolveInfo) => {
         return joinMonster(resolveInfo, {}, sql => {
+          console.log(sql);
           return knex.raw(sql)
         })
       }
@@ -126,17 +119,13 @@ const schema = new GraphQLSchema({
   // define the query you want to test
   const source = `
   {
-    users {
+    orders {
       id
-      tags {
-        a_tags {
+      items {
+        quantity
+        product {
           id
-        }
-        b_tags {
-          id
-        }
-        c_tags {
-          id
+          name
         }
       }
     }
@@ -145,34 +134,55 @@ const schema = new GraphQLSchema({
 
   // define the expected result
   const expected = {
-    users: [
+    orders: [
       {
         id: 1,
-        tags: {
-          a_tags: [
-            {
+        items: [
+          {
+            product: {
               id: 1,
+              name: 'prdudct1'
             },
-            {
-              id: 3,
-            }
-          ],
-          b_tags: [
-            {
+            quantity: 30
+          },
+          {
+            product: {
               id: 2,
+              name: 'prdudct2'
             },
-            {
-              id: 4,
-            }
-          ],
-          c_tags: []
-        }
+            quantity: 10
+          }
+        ]
+      },
+      {
+        id: 2,
+        items: [
+          {
+            product: {
+              id: 1,
+              name: 'prdudct1'
+            },
+            quantity: 30
+          }
+        ]
+      },
+      {
+        id: 3,
+        items: [
+          {
+            product: {
+              id: 1,
+              name: 'prdudct1'
+            },
+            quantity: 30
+          }
+        ]
       }
     ]
   };
-  
-  const { data, errors } = await graphql({schema, source});
-  
+
+  const { data, errors } = await graphql({ schema, source });
+
   if (errors?.length) {
     console.error(errors);
   }

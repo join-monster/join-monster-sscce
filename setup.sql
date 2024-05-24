@@ -1,35 +1,18 @@
-DROP TABLE IF EXISTS users;
-CREATE TABLE users (
+DROP TABLE IF EXISTS orders;
+CREATE TABLE orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  first_name VARCHAR(255),
-  last_name VARCHAR(255),
-  created_at DEFAULT CURRENT_TIMESTAMP
+  items JSON
 );
 
-DROP TABLE IF EXISTS user_tags;
-CREATE TABLE user_tags (
+DROP TABLE IF EXISTS products;
+CREATE TABLE products (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  tag_id INTEGER NOT NULL,
-  type VARCHAR(8),
-  created_at DEFAULT CURRENT_TIMESTAMP
+  name VARCHAR(255)
 );
 
-DROP TABLE IF EXISTS tags;
-CREATE TABLE tags (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  body VARCHAR(255),
-  created_at DEFAULT CURRENT_TIMESTAMP
-);
+insert into orders (items) values ('[{"quantity": 30, "product_id": 1}, {"quantity": 10, "product_id": 2}]');
+insert into orders (items) values ('[{"quantity": 3, "product_id": 1}]');
+insert into orders (items) values ('[{"quantity": 6, "product_id": 2}]');
 
-insert into users (first_name, last_name) values ('John', 'Doe');
-
-insert into tags (body) values ('tag1');
-insert into tags (body) values ('tag2');
-insert into tags (body) values ('tag3');
-insert into tags (body) values ('tag4');
-
-insert into user_tags (user_id, tag_id, type) values (1, 1, 'a');
-insert into user_tags (user_id, tag_id, type) values (1, 2, 'b');
-insert into user_tags (user_id, tag_id, type) values (1, 3, 'a');
-insert into user_tags (user_id, tag_id, type) values (1, 4, 'b');
+insert into products (name) values ('prdudct1');
+insert into products (name) values ('prdudct2');
